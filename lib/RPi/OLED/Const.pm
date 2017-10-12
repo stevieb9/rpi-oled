@@ -105,7 +105,7 @@ __END__
 
 =head1 NAME
 
-RPi::OLED - Helper module for RPi::OLED to provide constant variables
+RPi::OLED::Const - Helper module for RPi::OLED to provide constant variables
 
 =head1 SYNOPSIS
 
