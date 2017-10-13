@@ -1,116 +1,77 @@
-package RPi::OLED::SSD1306Base;
+package RPi::OLED::128x64;
 
 use warnings;
 use strict;
 
+use parent 'RPi::OLED::SSD1306Base';
+
 use Carp qw(croak);
-use RPi::Const qw(:all);
-use RPi::I2C;
 use RPi::OLED::Const;
-use RPi::Pin;
 
 our $VERSION = '0.01';
 
 sub new {
     my ($class, %args) = @_;
 
-    my $self = bless {}, $class;
-
-    # width
-    # height
-    # rst
-    # i2c
-    # i2c_device
-    # i2c_addr
-
-    for (keys %args){
-        $self->{$_} = $args{$_};
-    }
-
-    #FIXME: write sub that handles all i2c args, and dies accordingly if
-    # necessary
-
-    if (! $self->{i2c}){
-        $self->{i2c} = RPi::I2C->new($self->{i2c_addr}, $self->{i2c_device});
-    }
-
-    if (defined $self->{rst}){
-        $self->{rst} = RPi::Pin->new($self->{rst});
-        $self->{rst}->mode(OUTPUT);
-    }
-
-    $self->{pages} = int($self->{width} / 8);
-    $self->{buffer} = [0 x ($self->{width} * $self->{pages})];
+    my $self = $class->SUPER::new(
+        width => 128,
+        height => 64,
+        rst => $args{rst},
+        i2c_addr => SSD1306_I2C_ADDRESS
+    );
 
     return $self;
 }
-sub begin {
-    # initialize the display
-
-    my ($self, $vcc_state) = @_;
-    $self->{vcc_state} = $vcc_state // SSD1306_SWITCHCAPVCC;
-
-    $self->reset;
-    $self->initialize;
-    $self->command(SSD1306_DISPLAYON);
-}
-sub command {
-    # send command byte to display
-
-    my ($self, $char) = @_;
-
-    if (! defined $char){
-        croak "command() requires a byte sent in as an argument\n";
-    }
-    if ($self->_i2c) {
-        my $register = 0x00;
-        $self->_i2c($char, $register);
-    }
-}
-sub data {
-    # send data byte to display
-
-    my ($self, $char) = @_;
-
-    if (! defined $char){
-        croak "data() requires a byte sent in as an argument\n";
-    }
-
-    if ($self->_i2c){
-        my $register = 0x40;
-        $self->_i2c->write_byte($char, $register);
-    }
-}
-sub display {
-    # write display buffer to the display
-
-    my ($self) = @_;
-
-    $self->command(SSD1306_COLUMNADDR);
-    $self->command(0);
-    $self->command($self->{width} - 1);
-    $self->command(SSD1306_PAGEADDR);
-    $self->command(0);
-    $self->command($self->{pages} - 1);
-}
 sub initialize {
-    croak "NOT IMPLEMENTED: You must write an 'initialize()' sub into your " .
-          "subclass\n";
-}
-sub reset {
-    # reset the display
+    # 128x64 pixel specific initialization.
 
     my ($self) = @_;
-    return if ! defined $self->{rst};
 
-    $self->{rst}->write(HIGH);
-    select(undef, undef, undef, 0.001);
-    $self->{rst}->write(LOW);
-    select(undef, undef, undef, 0.01);
-    $self->{rst}->write(HIGH);
-}
-sub _i2c {
-    return $_[0]->{i2c};
+    $self->command(SSD1306_DISPLAYOFF);
+    $self->command(SSD1306_SETDISPLAYCLOCKDIV);
+    $self->command(0x80);
+    $self->command(SSD1306_SETMULTIPLEX);
+    $self->command(0x3F);
+    $self->command(SSD1306_SETDISPLAYOFFSET);
+    $self->command(0x0);
+    $self->command(SSD1306_SETSTARTLINE | 0x0);
+    $self->command(SSD1306_CHARGEPUMP);
+
+    if ($self._vccstate == SSD1306_EXTERNALVCC){
+        $self->command(0x10);
+    }
+    else {
+        $self->command(0x14);
+    }
+
+    $self->command(SSD1306_MEMORYMODE);
+    $self->command(0x00);
+    $self->command(SSD1306_SEGREMAP | 0x1);
+    $self->command(SSD1306_COMSCANDEC);
+    $self->command(SSD1306_SETCOMPINS);
+    $self->command(0x12);
+    $self.command(SSD1306_SETCONTRAST);
+
+    if ($self->{vccstate} == SSD1306_EXTERNALVCC){
+        $self->command(0x9F);
+    }
+    else {
+        $self->command(0xCF);
+    }
+
+    $self->command(SSD1306_SETPRECHARGE);
+
+    if ($self->{vccstate} == SSD1306_EXTERNALVCC) {
+        $self->command(0x22);
+    }
+    else {
+        $self->command(0xF1);
+    }
+
+    $self->command(SSD1306_SETVCOMDETECT);
+    $self->command(0x40);
+    $self->command(SSD1306_DISPLAYALLON_RESUME);
+    $self->command(SSD1306_NORMALDISPLAY);
 }
 
 1;
@@ -118,15 +79,11 @@ __END__
 
 =head1 NAME
 
-RPi::OLED::SSD1306Base - Base class for SSD1306 related OLED displays
+RPi::OLED::128x64 - Module for the 128x64 pixel displays
 
 =head1 SYNOPSIS
 
-use RPi::OLED::Const
-
 =head1 DESCRIPTION
-
-Provides constant variables for the L<RPi::OLED> distribution.
 
 =head1 AUTHOR
 
